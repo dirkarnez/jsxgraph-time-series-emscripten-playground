@@ -6,6 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraphcore.js"></script>
     <link rel="stylesheet" type="text/css"
           href="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraph.css">
+    <script src="./csv.umd.min.js"></script>
 </head>
 <body>
     <a href="https://github.com/dirkarnez/jsxgraph-playground" target="_blank">dirkarnez/jsxgraph-playground</a><br>
@@ -63,6 +64,41 @@
         btnSaveSVG.addEventListener("click", function () {
             downloadText(new XMLSerializer().serializeToString(board.renderer.svgRoot), "image/svg+xml");
         });
+
+        {
+            const fileInputElement = document.getElementById("files-input");
+            fileInputElement.addEventListener("change", async function () {
+                const fileList = Array.from(this.files);
+        
+                /*
+                const ok = fileList
+                    .every(a => new RegExp("\\.zip\\.\\d+$").test(a.name));
+            
+                if (ok && fileList.length > 0) {
+                    fileList.sort((a, b) => {
+                    const nthRegex = new RegExp("\\.zip\\.(\\d+)$");
+                    return Number(a.name.match(nthRegex)[1]) - Number(b.name.match(nthRegex)[1]);
+                    });
+                }
+                */
+            
+                const csvList = await Promise.all(fileList.map(file => {
+                    // return new Promise((res) => {
+                    //     const reader = new FileReader();
+                    //     reader.onload = (event) => {
+                    //         res(event.target.result);
+                    //     }
+                    //     reader.readAsText(file);
+                    // });
+                    return window.aaa.readCSV(file, 'utf-8');
+                }));
+
+                // csvList[0].getRow(1).values
+
+                debugger;
+
+            }, false);
+        }
     </script>
 </body>
 </html>

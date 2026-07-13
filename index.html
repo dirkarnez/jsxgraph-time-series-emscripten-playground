@@ -2,48 +2,160 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My JSXGraph Example</title>
     <script src="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraphcore.js"></script>
-    <link rel="stylesheet" type="text/css"
-          href="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraph.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraph.css">
+    <script src="./web-serial-wrapper-v1.0.0.umd.js"></script>
+    <script src="./csv.umd.min.js"></script>
 </head>
 <body>
-    <a href="https://github.com/dirkarnez/jsxgraph-playground" target="_blank">dirkarnez/jsxgraph-playground</a><br>
+    <label for="avatar">Project file:</label>
+    <input type="file" id="project-file-input">
+    <br>
+    <button type="button" onclick="handleBtnSerial()">Serial</button>
+    <!-- <input type="file" id="files-input" multiple> -->
     <div id="box" class="jxgbox" style="width: 500px; aspect-ratio: 1/1; margin: 0 auto;"></div>
-    <button type="button" id="btn-save-svg">Download as SVG</button>
+
     <script>
-        const downloadText = (stringContent, mimeType) => {
-            let blob = new Blob([stringContent], { type: mimeType });
-            const a = document.createElement("a");
-            a.innerText = ".vcd file";
-            a.href = URL.createObjectURL(blob);
-            a.download = `generated.svg`;
-            a.addEventListener("click", (e) => {
-              setTimeout(() => {
-                URL.revokeObjectURL(a.href);
-                document.body.removeChild(a);
-              }, 0);
-            })
-            document.body.appendChild(a);
-            a.click();
-        };
+        var board = JXG.JSXGraph.initBoard('box', {
+            boundingbox: [0, 60, 45, 0],
+            axis: false // Turn off default auto-axis
+        });
+
+        // Create a fixed Y-axis and standard X-axis
+        board.create('axis', [[0, 0], [0, 1]], {
+            position: 'sticky',
+            anchor: 'left',
+            anchorDist: 1
+        });
+
+        board.create('axis', [[0, 0], [1, 0]], {
+            position: 'sticky',
+            anchor: 'right',
+            anchorDist: 1
+        });
         
-        var board = JXG.JSXGraph.initBoard('box', {boundingbox: [-10, 10, 10, -10], axis: true});
+        // var board = JXG.JSXGraph.initBoard('box', {boundingbox: [-10, 10, 10, -10], axis: true});
         
-        var a = board.create('slider', [[2, -5], [7, -5], [-5, 1, 5]], { name: 'a' });
-        var b = board.create('slider', [[2, -6], [7, -6], [-5, 0, 5]], { name: 'b' });
-        var c = board.create('slider', [[2, -7], [7, -7], [-5, 0, 5]], { name: 'c' });
+        // var a = board.create('slider', [[2, -5], [7, -5], [-5, 1, 5]], { name: 'a' });
+        // var b = board.create('slider', [[2, -6], [7, -6], [-5, 0, 5]], { name: 'b' });
+        // var c = board.create('slider', [[2, -7], [7, -7], [-5, 0, 5]], { name: 'c' });
+
+
+        function plotESP(measurments, forDistance, espModelName, color) {
+            measurments.forEach(measurmentY => plotESPSingle(measurmentY, forDistance, espModelName, color));
+        }
+
+        function plotESPSingle(measurmentY, forDistance, espModelName, color) {
+            board.create('point', [ forDistance, measurmentY ], { name: espModelName, color: color, label: {visible: false}});
+        }
 
         var f = board.create('functiongraph', [
             function(x) {
-                return a.Value() * x * x + b.Value() * x + c.Value();
+                return x;
             }
         ]);
+
+
+        function handleBtnSerial() {
+           window.WebSerialWrapper().then(lines => {
+                // parse line
+           }); 
+        }
+
+        function generateUniqueColors(n) {
+            const colors = [];
+            const saturation = 75; // Kept constant for vibrancy
+            const lightness = 50;  // Kept constant for consistent brightness
+
+            for (let i = 0; i < n; i++) {
+                // Distribute hues evenly between 0 and 360
+                const hue = Math.round((i * 360) / n); 
+                colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+            }
+
+            return colors;
+            }
         
-        const btnSaveSVG = document.getElementById("btn-save-svg");
-        btnSaveSVG.addEventListener("click", function () {
-            downloadText(new XMLSerializer().serializeToString(board.renderer.svgRoot), "image/svg+xml");
-        });
+        {
+            const readSingleFileToText = (file) => new Promise((res) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    res(event.target.result);
+                }
+                reader.readAsText(file);
+            });
+
+            const projectFileInputElement = document.getElementById("project-file-input");
+            projectFileInputElement.addEventListener("change", async function () {
+                const fileList = Array.from(this.files);
+                if (fileList.length != 1) {
+                    alert("Single file");
+                    return;
+                }
+        
+                /*
+                const ok = fileList
+                    .every(a => new RegExp("\\.zip\\.\\d+$").test(a.name));
+            
+                if (ok && fileList.length > 0) {
+                    fileList.sort((a, b) => {
+                    const nthRegex = new RegExp("\\.zip\\.(\\d+)$");
+                    return Number(a.name.match(nthRegex)[1]) - Number(b.name.match(nthRegex)[1]);
+                    });
+                }
+                */
+
+                // csvList[0].getRow(1).values
+                const text = await readSingleFileToText(fileList[0]);
+                const data = JSON.parse(text);
+                data.forEach(item => {
+                    const modelMeasurements = item["measurement"];
+                    const colors = generateUniqueColors(modelMeasurements.length);
+
+                    modelMeasurements.forEach((modelMeasurement, i) => {
+                        plotESP(modelMeasurement.values, item["actual_length"], modelMeasurement["model_name"], `${colors[i]}`);
+                    });
+                });
+
+                debugger;
+
+            }, false);
+        }
+
+        {
+            const fileInputElement = document.getElementById("files-input");
+            !!fileInputElement && fileInputElement.addEventListener("change", async function () {
+                const fileList = Array.from(this.files);
+        
+                /*
+                const ok = fileList
+                    .every(a => new RegExp("\\.zip\\.\\d+$").test(a.name));
+            
+                if (ok && fileList.length > 0) {
+                    fileList.sort((a, b) => {
+                    const nthRegex = new RegExp("\\.zip\\.(\\d+)$");
+                    return Number(a.name.match(nthRegex)[1]) - Number(b.name.match(nthRegex)[1]);
+                    });
+                }
+                */
+            
+                const csvList = await Promise.all(fileList.map(file => {
+                    // return new Promise((res) => {
+                    //     const reader = new FileReader();
+                    //     reader.onload = (event) => {
+                    //         res(event.target.result);
+                    //     }
+                    //     reader.readAsText(file);
+                    // });
+                    return window.aaa.readCSV(file, 'utf-8');
+                }));
+
+                // csvList[0].getRow(1).values
+
+                debugger;
+
+            }, false);
+        }
     </script>
 </body>
 </html>
